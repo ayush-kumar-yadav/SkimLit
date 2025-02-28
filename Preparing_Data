@@ -1,0 +1,87 @@
+!wget https://raw.githubusercontent.com/mrdbourke/tensorflow-deep-learning/refs/heads/main/extras/helper_functions.py
+from helper_functions import *
+import tensorflow as tf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import tensorflow_datasets as tfds
+
+
+#cloning getting data from github
+!git clone https://github.com/Franck-Dernoncourt/pubmed-rct.git
+!ls pubmed-rct
+
+
+!ls pubmed-rct/PubMed_20k_RCT_numbers_replaced_with_at_sign/
+
+
+datadir = "pubmed-rct/PubMed_20k_RCT_numbers_replaced_with_at_sign/"
+
+
+import os
+filenames = [datadir+filename for filename in os.listdir(datadir)]
+#filenames = os.listdir(datadir)
+filenames
+
+
+#create functions to read lines of a doc
+def getlines(filename):
+  """read and return lines of a file"""
+  with open(filename,"r") as f:
+    return f.read().splitlines()
+trainlines=getlines(datadir+"train.txt")
+trainlines[:20]
+
+
+#turning data into stucute through a func
+def preprocess_lines(filename):
+   input_lines = get_lines(filename) # get all lines and store them in inp line
+   abstract_lines=" " # A string that stores all lines of a single abstract.
+   abstract_samples = []#A list that will store structured data about each line in the abstract.
+   for lines in input_lines:
+     if lines.startswith("###"):
+       abstract_id=lines
+       abstract_lines = " "# reset abs string if an id line
+     elif lines.isspace(): # check if new line 
+       abstract_line_split=abstract_lines.split()#split abstract into seperate lines 
+# iterate each line a an abstract and count them 
+       for abstract_lines_number,abstract_lines in enumerate(abstract_line_split):
+           line_data={} # empty dict for each line 
+           target_text_split=abstract_lines.split("t") # split label from text
+           line_data["target"]=target_text_split[0] #get label 
+           line_data["text"]=target_text_split[1].lower() # get text in lower 
+           line_data["abstract_lines_number"]=abstract_lines_number # what no. is line 
+           line_data["total_lines"]=len(abstract_line_split)-1 # total lines
+           abstract_samples.append(line_data)
+     else:
+       abstract_lines += "\n" + lines
+   return abstract_samples
+
+
+#get data and process it 
+%%time
+train_sample=preprocess_lines(datadir+"train.txt")
+test_sample=preprocess_lines(datadir+"test.txt")
+val_sample=preprocess_lines(datadir+"dev.txt")
+len(train_sample),len(test_sample),len(val_sample)
+
+#see example
+train_sample[:20]
+
+#data frame 
+import pandas as pd
+traindf=pd.DataFrame(train_sample)
+testdf=pd.DataFrame(test_sample)
+valdf=pd.DataFrame(val_sample)
+traindf.head(20)
+
+
+#abstract to lists
+train_sentences=traindf["text"].to_list()
+test_sentences=testdf["text"].to_list()
+val_sentences=valdf["text"].to_list()
+train_sentences[:20]  # only the text 
+
+
+#histogram for no,of lines
+traindf.total_lines.plot.hist();
