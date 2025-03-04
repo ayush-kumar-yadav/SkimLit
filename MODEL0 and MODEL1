@@ -1,0 +1,111 @@
+#MODEL 0 : BASELINE
+
+from sklearn.feature_extraction.text import TfidfTransformer,CountVectorizer
+from sklearn.naive_bayes import MultinomialNB 
+from sklearn.pipeline import Pipeline
+model0=Pipeline([
+    ("vectorizer", CountVectorizer()),  # Converts text to word count vectors
+    ("tfidf",TfidfTransformer()),#Converts word counts to TF-IDF scores
+    ("clf",MultinomialNB())# Naive Bayes classifier
+])
+model0.fit(train_sentences,trainlabel)
+
+#eval baseline on val datasaet
+model0.score(val_sentences,vallabel)
+
+baselinepreds=model0.predict(val_sentences)
+Baselinepreds
+
+baselineresults
+
+{'accuracy': 72.1832384482987,
+ 'precision': 0.7186466952323352,
+ 'recall': 0.7218323844829869,
+ 'f1': 0.6989250353450294}
+From <https://colab.research.google.com/drive/11krWrF412iYRW44IgXQZxAzYqoHN7frO#scrollTo=khLRfSf2gniH> 
+
+# Text Vectorization 
+
+# avg length of each sentence for vectorization 
+sentlen=[len(sentence.split()) for sentence in train_sentences]
+avglen=np.mean(sentlen)
+Avglen
+
+outputlen=int(np.percentile(sentlen,95))
+outputlen
+
+from tensorflow.keras.layers import TextVectorization
+textvectorizer=TextVectorization(
+    max_tokens=68000,
+    standardize="lower_and_strip_punctuation",
+    split="whitespace",
+    ngrams=None,
+    output_mode="int",
+    output_sequence_length=outputlen,
+)
+
+textvectorizer.adapt(train_sentences)
+
+#see TextVectorization results 
+import random 
+targetsent = random.choice(train_sentences)
+print(f"Target sentence: {targetsent}")
+print(f"Vectorized sentence: {textvectorizer([targetsent])}")
+
+#finding total,most common and least common words 
+
+vocab=textvectorizer.get_vocabulary()
+print(f"total words : {len(vocab)}")
+print(f"most common words : {vocab[:5]}")
+print(f"least common words : {vocab[-5:]}")
+
+#embedding layer 
+
+embedding = tf.keras.layers.Embedding(
+    input_dim=len(vocab),
+    output_dim=128,
+    mask_zero=True,# helps in computing when there are a lot of zeroes
+) 
+print(f"before embedding : {targetsent}")
+print(f"after vectorization:{textvectorizer([targetsent])}")
+print(f"after embedding : {embedding(textvectorizer([targetsent]))}")
+
+# Fast loading data 
+train_dataset=tf.data.Dataset.from_tensor_slices((train_sentences,trainlabel))
+valid_dataset=tf.data.Dataset.from_tensor_slices((val_sentences,vallabel))
+test_dataset=tf.data.Dataset.from_tensor_slices((test_sentences,testlabel))
+train_dataset
+
+train_dataset=train_dataset.batch(32).prefetch(tf.data.AUTOTUNE)
+valid_dataset=valid_dataset.batch(32).prefetch(tf.data.AUTOTUNE)
+test_dataset=test_dataset.batch(32).prefetch(tf.data.AUTOTUNE)
+
+• Prefetching allows the data pipeline to load the next batch of data while the current batch is being processed by the model.
+• tf.data.AUTOTUNE automatically determines the best prefetch buffer size based on available CPU/GPU resources.
+• Helps in reducing idle time between loading and computation, leading to improved training performance.
+
+from tensorflow.keras import layers 
+inputs=layers.Input(shape=(1,),dtype=tf.string)
+x=textvectorizer(inputs)
+x=embedding(x)
+x=layers.Conv1D(filters=64,kernel_size=5,activation="relu")(x)
+x=layers.GlobalMaxPool1D()(x)
+outputs=layers.Dense(numclasses,activation="softmax")(x)
+model1=tf.keras.Model(inputs,outputs)
+model1.compile(loss="sparse_categorical_crossentropy",
+               optimizer="adam",
+               metrics=["accuracy"])
+model1.summary()
+history1=model1.fit(train_dataset,epochs=5,validation_data=valid_dataset)
+
+model1.evaluate(valid_dataset)
+
+model1predprobs = model1.predict(valid_dataset)
+model1predprobs
+
+model1results = calculate_results(y_true=vallabel, 
+                                 y_pred=model1predprobs.argmax(axis=1))
+model1results
+
+{'accuracy': 79.140738779293,
+ 'precision': 0.7902753425077296,
